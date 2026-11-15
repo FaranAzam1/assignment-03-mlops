@@ -1,0 +1,45 @@
+USER: Why is my prediction API unavailable?
+
+[request d799e9259dbd | mode rules-fallback]
+
+TOOL CALLS:
+  - k8s_find_unhealthy_pods {} -> ok (1845 ms)
+  - k8s_list_deployments {} -> ok (21 ms)
+  - k8s_list_services {} -> ok (22 ms)
+  - k8s_get_pod_logs {'pod': 'ml-inference-6db55f4f75-ldgfm', 'previous': False} -> ok (68 ms)
+  - k8s_get_deployed_version {} -> ok (33 ms)
+
+AGENT:
+## Known facts (from tool output)
+- [k8s_find_unhealthy_pods] Unhealthy Pod ml-inference-6db55f4f75-ldgfm: api: not ready (readiness probe failing?) (phase Running, restarts 0).
+- [k8s_find_unhealthy_pods] Unhealthy Pod ml-inference-6db55f4f75-m87qz: api: not ready (readiness probe failing?) (phase Running, restarts 0).
+- [k8s_find_unhealthy_pods] Event Unhealthy on ml-inference-6db55f4f75-ldgfm: Readiness probe failed: HTTP probe failed with statuscode: 404
+- [k8s_find_unhealthy_pods] Event Unhealthy on ml-inference-6db55f4f75-m87qz: Readiness probe failed: HTTP probe failed with statuscode: 404
+- [k8s_find_unhealthy_pods] Event Unhealthy on ml-inference-6db55f4f75-ldgfm: Readiness probe failed: Get "http://10.1.0.19:8000/does-not-exist": dial tcp 10.1.0.19:8000: connect: connection refused
+- [k8s_find_unhealthy_pods] Event Unhealthy on ml-inference-6db55f4f75-m87qz: Readiness probe failed: Get "http://10.1.0.20:8000/does-not-exist": dial tcp 10.1.0.20:8000: connect: connection refused
+- [k8s_list_deployments] ml-inference: 1/2 ready, images ['ml-inference:1.0.0']
+- [k8s_list_services] ml-inference ClusterIP 10.106.10.202 ports [{'port': 80, 'target_port': '8000', 'protocol': 'TCP'}] selector {'app': 'ml-inference'}
+- [k8s_get_pod_logs] Logs of ml-inference-6db55f4f75-ldgfm:
+- [k8s_get_pod_logs]   INFO:     10.1.0.1:60084 - "GET /health HTTP/1.1" 200 OK
+- [k8s_get_pod_logs]   INFO:     10.1.0.1:60098 - "GET /does-not-exist HTTP/1.1" 404 Not Found
+- [k8s_get_pod_logs]   INFO:     10.1.0.1:60100 - "GET /does-not-exist HTTP/1.1" 404 Not Found
+- [k8s_get_pod_logs]   INFO:     10.1.0.1:58242 - "GET /health HTTP/1.1" 200 OK
+- [k8s_get_pod_logs]   INFO:     10.1.0.1:58244 - "GET /does-not-exist HTTP/1.1" 404 Not Found
+- [k8s_get_pod_logs]   INFO:     10.1.0.1:58252 - "GET /does-not-exist HTTP/1.1" 404 Not Found
+- [k8s_get_pod_logs]   INFO:     10.1.0.1:33376 - "GET /health HTTP/1.1" 200 OK
+- [k8s_get_pod_logs]   INFO:     10.1.0.1:33380 - "GET /does-not-exist HTTP/1.1" 404 Not Found
+- [k8s_get_deployed_version] Deployment ml-inference: image(s) ['ml-inference:1.0.0'], ready 1/2, rollout complete: False, MODEL_VERSION=1.0.0, version label=1.0.0.
+
+## Uncertainties
+- None identified.
+
+## Recommended actions
+- Deployment rollout is not complete: inspect Pod events and logs before anything else.
+- Fix the unhealthy Pods (see events/logs above). Retraining will not repair an infrastructure fault.
+
+## Evidence
+- k8s_find_unhealthy_pods -> ok (1845 ms, request d799e9259dbd)
+- k8s_list_deployments -> ok (21 ms, request d799e9259dbd)
+- k8s_list_services -> ok (22 ms, request d799e9259dbd)
+- k8s_get_pod_logs -> ok (68 ms, request d799e9259dbd)
+- k8s_get_deployed_version -> ok (33 ms, request d799e9259dbd)

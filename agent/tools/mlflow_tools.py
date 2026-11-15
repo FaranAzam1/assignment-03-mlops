@@ -135,7 +135,10 @@ def mlflow_find_best_run(
     scored = [r for r in runs if metric in r.data.metrics]
     if not scored:
         raise ToolError(f"no finished runs with metric '{metric}' in '{experiment}'")
-    scored.sort(key=lambda r: r.data.metrics[metric], reverse=higher_is_better)
+    # Ties on the metric are broken in favour of runs that passed the quality gate.
+    sign = 1 if higher_is_better else -1
+    scored.sort(key=lambda r: (sign * r.data.metrics[metric], r.data.tags.get("quality_gate") == "passed"),
+                reverse=True)
     best = scored[0]
     gate = best.data.tags.get("quality_gate")
     caveats = [

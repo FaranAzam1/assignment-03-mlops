@@ -153,7 +153,10 @@ class Agent:
         evidence: list[ToolResult] | None = None
         mode = "workflow"
 
-        if plan.multi and plan.steps:
+        mutating = any(self.registry[st.tool].mutating for st in plan.steps if st.tool in self.registry)
+        if (plan.multi or mutating) and plan.steps:
+            # Multi-tool investigations need ordered, dependency-aware steps; state-changing requests
+            # must never take arguments invented by a small model (it once sent namespace='namespace').
             evidence = self._run_plan(plan.steps, request_id)
         else:
             if self.llm is not None:

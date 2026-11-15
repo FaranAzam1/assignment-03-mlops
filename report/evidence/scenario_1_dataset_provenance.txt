@@ -1,0 +1,29 @@
+USER: Which dataset version was used to train the best model run, and how can I reproduce it?
+
+[request aaebc8b11c53 | mode workflow]
+
+TOOL CALLS:
+  - mlflow_find_best_run {'metric': 'f1', 'limit': 5} -> ok (4471 ms)
+  - dvc_get_run_dataset_provenance {'run_id': '914d72d20f484b1093d6920c7539376e'} -> ok (155 ms)
+  - dvc_get_dataset_version {} -> ok (151 ms)
+
+AGENT:
+## Known facts (from tool output)
+- [mlflow_find_best_run] Best of 5 recent finished runs by f1: run 914d72d2 (accuracy=0.8925, f1=0.8969, precision=0.8618, recall=0.9350, roc_auc=0.9651); quality_gate tag: passed.
+- [mlflow_find_best_run] Ranking: 914d72d2=0.8969, 51a71a31=0.8969, a82a36c9=0.8969, d5981fda=0.8969, ffb6a6e8=0.6650
+- [dvc_get_run_dataset_provenance] Run 914d72d2 recorded dataset md5 c65197e4d69a35d20732a6070163a06c (rows: 2000); that data version is Git commit e7b16b2 / data-v2.
+- [dvc_get_run_dataset_provenance] To reproduce: git checkout e7b16b2 -- data/dataset.csv.dvc && dvc checkout data/dataset.csv
+- [dvc_get_dataset_version] Dataset dataset.csv: md5 c65197e4d69a35d20732a6070163a06c, last changed in commit e7b16b2 (data-v2); repo HEAD is c25cff0.
+
+## Uncertainties
+- Ranked only the 5 most recent finished runs, not all history.
+- Selection used 'f1' alone; precision/recall trade-offs and data drift not assessed.
+- Margin over the runner-up is only 0.0000: effectively a tie.
+
+## Recommended actions
+- None required.
+
+## Evidence
+- mlflow_find_best_run -> ok (4471 ms, request aaebc8b11c53)
+- dvc_get_run_dataset_provenance -> ok (155 ms, request aaebc8b11c53)
+- dvc_get_dataset_version -> ok (151 ms, request aaebc8b11c53)

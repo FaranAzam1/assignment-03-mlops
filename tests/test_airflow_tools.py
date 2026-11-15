@@ -55,3 +55,10 @@ def test_bad_credentials_reported():
     airflow_tools.set_session_factory(Bad({}))
     res = execute_tool("airflow_list_dags", {})
     assert res.status == "error" and "credentials" in res.error
+
+
+def test_structured_airflow3_logs_yield_root_cause_without_group_markers():
+    airflow_tools.set_session_factory(FakeAirflow(airflow_routes("failed", "validate_dataset")))
+    d = execute_tool("airflow_get_task_diagnostics", {"task_id": "validate_dataset"}).data
+    assert "AirflowFailException: dataset md5 differs from DVC record" in d["error_lines"]
+    assert not any(line.startswith("::") or "group" in line for line in d["log_tail"])

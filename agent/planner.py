@@ -83,6 +83,15 @@ def _first_unhealthy_pod(evidence: Evidence) -> dict[str, Any] | None:
     return None
 
 
+def _log_target(evidence: Evidence) -> dict[str, Any] | None:
+    """Logs of the first unhealthy Pod, else of the first Pod (healthy logs still show startup state)."""
+    unhealthy = _first_unhealthy_pod(evidence)
+    if unhealthy:
+        return unhealthy
+    pods = _result(evidence, "k8s_list_pods")
+    return {"pod": pods.data["pods"][0]["name"]} if pods and pods.data["pods"] else None
+
+
 def _first_failed_task(evidence: Evidence) -> dict[str, Any] | None:
     r = _result(evidence, "airflow_get_failed_tasks")
     if r and r.data["failed_tasks"]:
@@ -95,8 +104,11 @@ def _failed_run_args(evidence: Evidence) -> dict[str, Any] | None:
     r = _result(evidence, "airflow_get_dag_runs")
     if not r:
         return None
-    failed = [x for x in r.data["runs"] if x["state"] == "failed"]
-    return {"dag_id": r.data["dag_id"], "dag_run_id": failed[0]["dag_run_id"]} if failed else None
+    runs = r.data["runs"]
+    # Only drill in when the most recent run failed; an older failure followed by a success is history.
+    if runs and runs[0]["state"] == "failed":
+        return {"dag_id": r.data["dag_id"], "dag_run_id": runs[0]["dag_run_id"]}
+    return None
 
 
 def _mlflow_steps(low: str, msg: str) -> list[Step]:
@@ -153,14 +165,23 @@ def _airflow_steps(low: str, with_gate: bool) -> list[Step]:
     return steps
 
 
+NS_RE = re.compile(r"namespace\s+([a-z0-9][a-z0-9-]*)|in\s+(?:the\s+)?([a-z0-9][a-z0-9-]*)\s+namespace")
+
+
+def _namespace(low: str) -> dict[str, Any]:
+    m = NS_RE.search(low)
+    ns = next((g for g in m.groups() if g), None) if m else None
+    return {"namespace": ns} if ns else {}
+
+
 def _k8s_steps(low: str, msg: str) -> list[Step]:
     pod = re.search(r"\b(ml-inference-[a-z0-9-]+)\b", low)
     if "restart" in low:
-        return [Step("k8s_restart_deployment", {"deployment": "ml-inference"})]
+        return [Step("k8s_restart_deployment", {"deployment": "ml-inference", **_namespace(low)})]
     if "scale" in low:
         n = re.search(r"(?:to|replicas?)\s*(\d+)|(\d+)\s*replicas?", low)
         count = int(next(g for g in n.groups() if g)) if n else 2
-        return [Step("k8s_scale_deployment", {"deployment": "ml-inference", "replicas": count})]
+        return [Step("k8s_scale_deployment", {"deployment": "ml-inference", "replicas": count, **_namespace(low)})]
     if "log" in low:
         if pod:
             return [Step("k8s_get_pod_logs", {"pod": pod.group(1)})]
@@ -170,7 +191,7 @@ def _k8s_steps(low: str, msg: str) -> list[Step]:
     if any(k in low for k in ("unavailable", "down", "not working", "unhealthy", "crash", "fail",
                               "error", "why", "diagnos", "broken", "not ready", "restart")):
         return [Step("k8s_find_unhealthy_pods"), Step("k8s_list_deployments"), Step("k8s_list_services"),
-                Step("k8s_get_pod_logs", _first_unhealthy_pod),
+                Step("k8s_list_pods"), Step("k8s_get_pod_logs", _log_target),
                 Step("k8s_get_deployed_version")]
     if "service" in low:
         return [Step("k8s_list_services")]

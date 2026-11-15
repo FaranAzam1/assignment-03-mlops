@@ -1,0 +1,29 @@
+$ git log --oneline --decorate
+c25cff0 (HEAD -> main, origin/main) Run on real Airflow 3, MLflow and Kubernetes: Postgres metadata DB, raw-byte DVC md5, pinned serving deps, LLM fallback and retry
+209e37a Add README and architecture notes
+e7b16b2 (tag: data-v2) Dataset v2 (2000 rows)
+73f62c6 (tag: data-v1) Track dataset v1 (1000 rows) with DVC
+22ff500 Add MLOps agent: tools, orchestrator, API, pipeline, manifests, tests, CI
+
+$ dvc status
+Data and pipelines are up to date.
+
+$ dvc diff data-v1 data-v2
+Modified:
+    data\dataset.csv
+
+files summary: 1 modified
+
+$ cat data/dataset.csv.dvc
+outs:
+- md5: c65197e4d69a35d20732a6070163a06c
+  size: 209010
+  hash: md5
+  path: dataset.csv
+
+$ git show data-v1:data/dataset.csv.dvc
+outs:
+- md5: dcdbe9d5e55f1e6a1c4587495440266e
+  size: 103780
+  hash: md5
+  path: dataset.csv

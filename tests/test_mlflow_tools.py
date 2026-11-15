@@ -50,3 +50,17 @@ def test_mlflow_down_reports_unavailable():
     mlflow_tools.set_client_factory(lambda: client)
     res = execute_tool("mlflow_list_experiments", {})
     assert res.status == "unavailable" and res.data is None
+
+
+def test_tie_on_metric_prefers_run_that_passed_the_quality_gate():
+    client = FakeMlflow([make_run(RUN_A, 0.90, gate="failed"), make_run(RUN_B, 0.90, gate="passed")])
+    mlflow_tools.set_client_factory(lambda: client)
+    res = execute_tool("mlflow_find_best_run", {})
+    assert res.data["best"]["run_id"] == RUN_B
+
+
+def test_lower_is_better_metric_sorts_ascending():
+    client = FakeMlflow([make_run(RUN_A, 0.90), make_run(RUN_B, 0.70)])
+    mlflow_tools.set_client_factory(lambda: client)
+    res = execute_tool("mlflow_find_best_run", {"metric": "f1", "higher_is_better": False})
+    assert res.data["best"]["run_id"] == RUN_B

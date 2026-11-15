@@ -1,0 +1,37 @@
+USER: Why is my prediction API unavailable?
+
+[request 6ef15db512d5 | mode rules-fallback]
+
+TOOL CALLS:
+  - k8s_find_unhealthy_pods {} -> ok (2057 ms)
+  - k8s_list_deployments {} -> ok (20 ms)
+  - k8s_list_services {} -> ok (21 ms)
+  - k8s_get_pod_logs {'pod': 'ml-inference-7448c6b859-cqhl2', 'previous': False} -> ok (36 ms)
+  - k8s_get_deployed_version {} -> ok (33 ms)
+
+AGENT:
+## Known facts (from tool output)
+- [k8s_find_unhealthy_pods] Unhealthy Pod ml-inference-7448c6b859-cqhl2: api: ImagePullBackOff (phase Pending, restarts 0).
+- [k8s_find_unhealthy_pods] Unhealthy Pod ml-inference-7448c6b859-ml97h: api: ImagePullBackOff (phase Pending, restarts 0).
+- [k8s_find_unhealthy_pods] Event Failed on ml-inference-7448c6b859-ml97h: Failed to pull image "ml-inference:9.9.9": Error response from daemon: pull access denied for ml-inference, repository does not exist or may require 'docker log
+- [k8s_find_unhealthy_pods] Event Failed on ml-inference-7448c6b859-ml97h: Error: ErrImagePull
+- [k8s_find_unhealthy_pods] Event Failed on ml-inference-7448c6b859-cqhl2: Failed to pull image "ml-inference:9.9.9": Error response from daemon: pull access denied for ml-inference, repository does not exist or may require 'docker log
+- [k8s_find_unhealthy_pods] Event Failed on ml-inference-7448c6b859-cqhl2: Error: ErrImagePull
+- [k8s_list_deployments] ml-inference: 1/2 ready, images ['ml-inference:9.9.9']
+- [k8s_list_services] ml-inference ClusterIP 10.106.10.202 ports [{'port': 80, 'target_port': '8000', 'protocol': 'TCP'}] selector {'app': 'ml-inference'}
+- [k8s_get_pod_logs] Pod ml-inference-7448c6b859-cqhl2 has no logs (no logs available (HTTP 400)).
+- [k8s_get_deployed_version] Deployment ml-inference: image(s) ['ml-inference:9.9.9'], ready 1/2, rollout complete: False, MODEL_VERSION=1.0.0, version label=1.0.0.
+
+## Uncertainties
+- None identified.
+
+## Recommended actions
+- Deployment rollout is not complete: inspect Pod events and logs before anything else.
+- Fix the unhealthy Pods (see events/logs above). Retraining will not repair an infrastructure fault.
+
+## Evidence
+- k8s_find_unhealthy_pods -> ok (2057 ms, request 6ef15db512d5)
+- k8s_list_deployments -> ok (20 ms, request 6ef15db512d5)
+- k8s_list_services -> ok (21 ms, request 6ef15db512d5)
+- k8s_get_pod_logs -> ok (36 ms, request 6ef15db512d5)
+- k8s_get_deployed_version -> ok (33 ms, request 6ef15db512d5)

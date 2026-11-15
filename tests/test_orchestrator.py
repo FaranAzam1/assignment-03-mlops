@@ -220,3 +220,40 @@ def test_llm_summary_skipped_when_any_tool_failed(fake_mlflow):
     llm = StubLLM(LLMResponse(content="should never be used"))
     resp = Agent(llm=llm).handle("list mlflow experiments")
     assert "Summary (LLM" not in resp.answer
+
+
+def test_upstream_failed_gate_is_not_blamed_when_validation_was_the_root_cause(tmp_path):
+    """Regression: a run failing at validate_dataset leaves quality_gate 'upstream_failed'. That must
+    not be reported as a failed quality gate or trigger a retraining recommendation."""
+    _setup_world(tmp_path, dag_state="failed", failed_task="validate_dataset")
+    resp = Agent(llm=None).handle(INTEGRATION)
+    assert "Retraining is NOT recommended" in resp.answer
+    assert "failed the model quality gate" not in resp.answer
+    assert "failed at validate_dataset" in resp.answer
+    assert "AirflowFailException" in resp.answer or "dataset md5" in resp.answer
+
+
+def test_state_changing_requests_bypass_llm_argument_selection(healthy_k8s):
+    llm = StubLLM(call("k8s_restart_deployment", deployment="deployment", namespace="namespace"))
+    resp = Agent(llm=llm).handle("restart the kubernetes deployment")
+    assert llm.calls == []  # the LLM was never consulted for a mutating request
+    assert resp.tool_calls[0].args == {"deployment": "ml-inference"} and resp.pending_actions
+
+
+def test_named_unapproved_namespace_is_denied_not_silently_redirected(healthy_k8s):
+    resp = Agent(llm=None).handle("restart the kubernetes deployment in namespace kube-system")
+    assert resp.tool_calls[0].status == "denied" and not resp.pending_actions
+    assert healthy_k8s[1].patches == []
+
+
+def test_older_failure_followed_by_success_is_not_drilled_into(tmp_path):
+    from tests.conftest import Resp
+    routes = airflow_routes("success")
+    routes[("GET", "/dags/training_pipeline/dagRuns")] = Resp(200, {"dag_runs": [
+        {"dag_run_id": "manual__2", "state": "success", "run_type": "manual", "start_date": "2026-11-15T11:00:00Z"},
+        {"dag_run_id": "manual__1", "state": "failed", "run_type": "manual", "start_date": "2026-11-15T10:00:00Z"}]})
+    _setup_world(tmp_path)
+    airflow_tools.set_session_factory(FakeAirflow(routes))
+    resp = Agent(llm=None).handle(INTEGRATION)
+    assert "airflow_get_failed_tasks" not in [t.tool for t in resp.tool_calls]
+    assert "Retraining is NOT recommended" in resp.answer

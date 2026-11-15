@@ -1,0 +1,61 @@
+Name:                   ml-inference
+Namespace:              mlops
+CreationTimestamp:      Sun, 15 Nov 2026 17:54:47 +0500
+Labels:                 app=ml-inference
+                        app.kubernetes.io/version=1.0.0
+Annotations:            deployment.kubernetes.io/revision: 7
+Selector:               app=ml-inference
+Replicas:               2 desired | 2 updated | 2 total | 2 available | 0 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  1 max unavailable, 1 max surge
+Pod Template:
+  Labels:       app=ml-inference
+                app.kubernetes.io/version=1.0.0
+  Annotations:  kubectl.kubernetes.io/restartedAt: 2026-11-15T18:08:46+05:00
+  Containers:
+   api:
+    Image:      ml-inference:1.0.0
+    Port:       8000/TCP
+    Host Port:  0/TCP
+    Limits:
+      cpu:     500m
+      memory:  512Mi
+    Requests:
+      cpu:      100m
+      memory:   128Mi
+    Liveness:   http-get http://:8000/health delay=10s timeout=1s period=10s #success=1 #failure=3
+    Readiness:  http-get http://:8000/ready delay=5s timeout=1s period=5s #success=1 #failure=3
+    Environment Variables from:
+      ml-inference-config  ConfigMap  Optional: false
+    Environment:           <none>
+    Mounts:                <none>
+  Volumes:                 <none>
+  Node-Selectors:          <none>
+  Tolerations:             <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      True    MinimumReplicasAvailable
+  Progressing    True    NewReplicaSetAvailable
+OldReplicaSets:  ml-inference-649b79dccc (0/0 replicas created), ml-inference-5c99d4ffbd (0/0 replicas created), ml-inference-7448c6b859 (0/0 replicas created), ml-inference-6db55f4f75 (0/0 replicas created)
+NewReplicaSet:   ml-inference-67bf9c6b47 (2/2 replicas created)
+Events:
+  Type    Reason             Age                    From                   Message
+  ----    ------             ----                   ----                   -------
+  Normal  ScalingReplicaSet  31m                    deployment-controller  Scaled up replica set ml-inference-649b79dccc from 0 to 2
+  Normal  ScalingReplicaSet  26m                    deployment-controller  Scaled up replica set ml-inference-5c99d4ffbd from 0 to 1
+  Normal  ScalingReplicaSet  26m                    deployment-controller  Scaled down replica set ml-inference-649b79dccc from 2 to 1
+  Normal  ScalingReplicaSet  26m                    deployment-controller  Scaled up replica set ml-inference-5c99d4ffbd from 1 to 2
+  Normal  ScalingReplicaSet  17m                    deployment-controller  Scaled down replica set ml-inference-649b79dccc from 1 to 0
+  Normal  ScalingReplicaSet  17m                    deployment-controller  Scaled down replica set ml-inference-5c99d4ffbd from 2 to 1
+  Normal  ScalingReplicaSet  17m                    deployment-controller  Scaled up replica set ml-inference-67bf9c6b47 from 0 to 2
+  Normal  ScalingReplicaSet  16m                    deployment-controller  Scaled down replica set ml-inference-5c99d4ffbd from 1 to 0
+  Normal  ScalingReplicaSet  5m57s                  deployment-controller  Scaled up replica set ml-inference-7448c6b859 from 0 to 1
+  Normal  ScalingReplicaSet  5m57s                  deployment-controller  Scaled up replica set ml-inference-7448c6b859 from 1 to 2
+  Normal  ScalingReplicaSet  4m58s                  deployment-controller  Scaled down replica set ml-inference-7448c6b859 from 2 to 0
+  Normal  ScalingReplicaSet  4m45s (x2 over 5m57s)  deployment-controller  Scaled down replica set ml-inference-67bf9c6b47 from 2 to 1
+  Normal  ScalingReplicaSet  4m45s                  deployment-controller  Scaled up replica set ml-inference-6db55f4f75 from 0 to 1
+  Normal  ScalingReplicaSet  4m45s                  deployment-controller  Scaled up replica set ml-inference-6db55f4f75 from 1 to 2
+  Normal  ScalingReplicaSet  3m40s (x2 over 4m58s)  deployment-controller  Scaled up replica set ml-inference-67bf9c6b47 from 1 to 2
+  Normal  ScalingReplicaSet  3m40s                  deployment-controller  Scaled down replica set ml-inference-6db55f4f75 from 2 to 0

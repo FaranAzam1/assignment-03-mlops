@@ -159,14 +159,27 @@ def airflow_get_task_diagnostics(
     ti = _call("GET", base)
     try_number = max(int(ti.get("try_number") or 1), 1)
     log_lines: list[str] = []
+    errors: list[str] = []
     try:
         log = _call("GET", f"{base}/logs/{try_number}")
-        content = log.get("content", [])
-        for item in content:
-            log_lines.append(item if isinstance(item, str) else str(item.get("event", item)))
+        for item in log.get("content", []):
+            if isinstance(item, str):
+                line, is_err = item, any(k in item.lower() for k in ("error", "exception", "traceback"))
+            else:
+                event = str(item.get("event", ""))
+                if event.startswith("::"):  # group markers carry no information
+                    continue
+                line = f"{str(item.get('level', 'info')).upper()} {event}"
+                is_err = item.get("level") in ("error", "critical") or bool(item.get("error_detail"))
+                for exc in item.get("error_detail") or []:
+                    detail = f"{exc.get('exc_type')}: {exc.get('exc_value')}"
+                    errors.append(detail)
+                    line += f" -> {detail}"
+            log_lines.append(line)
+            if is_err and line not in errors:
+                errors.append(line)
     except ToolError as exc:
         log_lines.append(f"[log unavailable: {exc}]")
-    errors = [ln for ln in log_lines if any(k in ln.lower() for k in ("error", "exception", "traceback", "failed"))]
     return {
         "dag_id": dag_id,
         "dag_run_id": dag_run_id,

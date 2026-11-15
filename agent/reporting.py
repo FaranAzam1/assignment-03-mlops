@@ -209,11 +209,17 @@ def retraining_assessment(evidence: list[ToolResult], message: str) -> dict[str,
 
     runs = got.get("airflow_get_dag_runs")
     failed = got.get("airflow_get_failed_tasks")
-    if failed and any("quality_gate" in t["task_id"] or "gate" in t["task_id"] for t in failed.data["failed_tasks"]):
-        reasons.append(f"Latest failed pipeline run {failed.data['dag_run_id']} failed the model quality gate.")
+    if failed:
+        # Only tasks that themselves failed count: upstream_failed tasks never ran.
+        root = [t["task_id"] for t in failed.data["failed_tasks"] if t["state"] == "failed"]
+        if any("gate" in t for t in root):
+            reasons.append(f"Latest failed pipeline run {failed.data['dag_run_id']} failed the model quality gate.")
+        elif root:
+            notes.append(f"Latest failed pipeline run failed at {', '.join(root)}, not at the quality gate: "
+                         "that says nothing about model quality, so fix that failure first.")
     elif runs and runs.data["runs"] and runs.data["runs"][0]["state"] == "failed":
-        notes.append("Latest pipeline run failed but not at the quality gate; fix the failure before judging the model.")
-    elif not runs:
+        notes.append("Latest pipeline run failed (cause not inspected); fix it before judging the model.")
+    if not runs:
         notes.append("Pipeline status could not be checked (no Airflow evidence).")
 
     prov, cur = got.get("dvc_get_run_dataset_provenance"), got.get("dvc_get_dataset_version")

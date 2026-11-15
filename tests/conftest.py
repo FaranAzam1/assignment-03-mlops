@@ -133,9 +133,12 @@ def airflow_routes(state="success", failed_task=None):
              for t in ("validate_dataset", "preprocess_data", "train_model", "evaluate_and_log")]
     tasks.append({"task_id": "quality_gate", "state": "success", "try_number": 1, "max_tries": 0})
     if failed_task:
-        for t in tasks:
+        hit = False
+        for t in tasks:  # a failed task makes everything after it upstream_failed, as in Airflow
             if t["task_id"] == failed_task:
-                t["state"] = "failed"
+                t["state"], hit = "failed", True
+            elif hit:
+                t["state"] = "upstream_failed"
     return {
         ("GET", "/dags/training_pipeline/dagRuns"): Resp(200, {"dag_runs": [
             {"dag_run_id": "manual__1", "state": state, "run_type": "manual",
@@ -145,6 +148,15 @@ def airflow_routes(state="success", failed_task=None):
             "state": "failed", "try_number": 1, "max_tries": 0, "duration": 1.2}),
         ("GET", "/taskInstances/quality_gate/logs/1"): Resp(200, {"content": [
             "INFO starting", "ERROR quality gate failed: f1=0.7000 below threshold 0.9900"]}),
+        ("GET", "/dags/training_pipeline/dagRuns/manual__1/taskInstances/validate_dataset"): Resp(200, {
+            "state": "failed", "try_number": 1, "max_tries": 0, "duration": 0.4}),
+        # Airflow 3 returns structured log events
+        ("GET", "/taskInstances/validate_dataset/logs/1"): Resp(200, {"content": [
+            {"event": "::group::Log message source details", "sources": ["x"]},
+            {"event": "::endgroup::"},
+            {"event": "Filling up the DagBag", "level": "info"},
+            {"event": "Task failed with exception", "level": "error", "error_detail": [
+                {"exc_type": "AirflowFailException", "exc_value": "dataset md5 differs from DVC record"}]}]}),
         ("POST", "/dags/training_pipeline/dagRuns"): Resp(200, {
             "dag_run_id": "manual__new", "state": "queued", "run_type": "manual"}),
         ("GET", "/dags"): Resp(200, {"dags": [{"dag_id": "training_pipeline", "is_paused": False,
