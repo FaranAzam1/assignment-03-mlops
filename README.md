@@ -90,13 +90,22 @@ unavailable?` · `Trigger the model training pipeline` (asks for confirmation).
 ## 5. Tests and lint
 
 ```bash
-pytest                 # 64 tests; every external system is mocked, none needs a running service
+pytest                 # 76 tests; every external system is mocked, none needs a running service
 ruff check .
 ```
 
 CI (`.github/workflows/ci.yml`) runs ruff and pytest on every pull request and push to `main`.
 
-## 6. Failure injection
+## 6. Reproduce the report evidence
+
+```bash
+python scripts/run_demo.py                      # the five scenarios -> report/evidence/scenario_*.txt
+python scripts/ask.py my_slug "your question"   # one question -> report/evidence/my_slug.txt
+python scripts/capture_screenshots.py           # needs: pip install playwright; uses local Edge/Chrome
+python scripts/build_report.py                  # report/report.md + report/report.pdf from report_template.md
+```
+
+## 7. Failure injection
 
 | Layer | Command | Expected diagnosis |
 |---|---|---|
