@@ -14,7 +14,7 @@ mlflow-data/
 airflow-logs/
 airflow-work/
 models/
-.dvc-storage/
+mlruns/
 .dvc/cache
 .dvc/tmp
 

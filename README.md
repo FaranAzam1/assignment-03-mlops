@@ -34,7 +34,8 @@ python scripts/make_dataset.py v2 && dvc add data/dataset.csv   # how a new vers
 
 Two versions exist in Git history, tagged `data-v1` (1000 rows) and `data-v2` (2000 rows).
 Reproduce an old one: `git checkout data-v1 -- data/dataset.csv.dvc && dvc checkout data/dataset.csv`.
-The DVC remote is a local folder (`.dvc-storage/`, not in Git); point it at S3/GCS for real use.
+The DVC remote is the folder `.dvc-storage/`, committed to this repository so that `dvc pull` works after a plain
+`git clone`. For real use, point it at S3/GCS (`dvc remote modify localstorage url s3://...`).
 
 ## 3. Start the services
 

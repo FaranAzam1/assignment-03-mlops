@@ -53,7 +53,8 @@ def test_md5_matches_dvc_hash_of_raw_bytes(tmp_path):
 
 
 @pytest.fixture
-def tracking(tmp_path):
+def tracking(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # MLflow writes artifacts to ./mlruns: keep them out of the repo
     return f"sqlite:///{(tmp_path / 'mlflow.db').as_posix()}"
 
 
