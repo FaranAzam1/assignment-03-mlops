@@ -78,3 +78,15 @@ def test_failed_quality_gate_blocks_promotion(tmp_path, tracking):
     assert runs[0].data.tags["quality_gate"] == "failed"
     assert not client.search_registered_models()          # nothing registered
     assert not (tmp_path / "models" / "model.joblib").exists()  # nothing exported for deployment
+
+
+def test_git_commit_falls_back_to_reading_git_dir_without_git_binary(tmp_path, monkeypatch):
+    (tmp_path / ".git" / "refs" / "heads").mkdir(parents=True)
+    (tmp_path / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+    (tmp_path / ".git" / "refs" / "heads" / "main").write_text("abcdef1234567890\n")
+
+    def no_git(*a, **k):
+        raise FileNotFoundError
+
+    monkeypatch.setattr(T.subprocess, "run", no_git)
+    assert T.git_commit(tmp_path) == "abcdef1"

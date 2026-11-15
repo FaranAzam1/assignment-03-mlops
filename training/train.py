@@ -55,13 +55,34 @@ def recorded_md5(dataset: str = DEFAULT_DATASET, root: Path = REPO_ROOT) -> str 
     return outs[0].get("md5") if outs else None
 
 
+def _head_from_git_dir(root: Path) -> str | None:
+    """Read HEAD straight from .git (works where the git binary is not installed, e.g. the Airflow image)."""
+    git_dir = root / ".git"
+    try:
+        head = (git_dir / "HEAD").read_text().strip()
+        if not head.startswith("ref: "):
+            return head[:7]
+        ref = head[5:]
+        ref_file = git_dir / ref
+        if ref_file.exists():
+            return ref_file.read_text().strip()[:7]
+        for line in (git_dir / "packed-refs").read_text().splitlines():
+            if line.endswith(" " + ref):
+                return line.split()[0][:7]
+    except OSError:
+        pass
+    return None
+
+
 def git_commit(root: Path = REPO_ROOT) -> str:
     try:
         out = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=root, capture_output=True,
                              text=True, timeout=5, check=False)
-        return out.stdout.strip() or os.environ.get("GIT_COMMIT", "unknown")
+        if out.stdout.strip():
+            return out.stdout.strip()
     except (OSError, subprocess.TimeoutExpired):
-        return os.environ.get("GIT_COMMIT", "unknown")
+        pass
+    return _head_from_git_dir(root) or os.environ.get("GIT_COMMIT", "unknown")
 
 
 # --------------------------------------------------------------------------- stages
