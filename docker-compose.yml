@@ -1,0 +1,43 @@
+# MLflow tracking server + Airflow 3 (standalone: api-server, scheduler, dag-processor, triggerer).
+# Credentials come from .env (created by `python scripts/setup_env.py`, never committed).
+services:
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      retries: 10
+
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    command: standalone
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/repo/dags
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:admin"
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/auth/passwords.json
+      AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?run python scripts/setup_env.py}
+      AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "10"
+      REPO_ROOT: /opt/airflow/repo
+      WORK_ROOT: /opt/airflow/work
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ./:/opt/airflow/repo
+      - ./airflow-work:/opt/airflow/work
+      - ./airflow-passwords.json:/opt/airflow/auth/passwords.json:ro
+
+volumes:
+  mlflow-data:

@@ -1,0 +1,9 @@
+.venv
+.git
+.dvc-storage
+airflow-work
+airflow-logs
+mlflow-data
+logs
+__pycache__
+tests
