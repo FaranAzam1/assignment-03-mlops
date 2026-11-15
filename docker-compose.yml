@@ -1,6 +1,20 @@
-# MLflow tracking server + Airflow 3 (standalone: api-server, scheduler, dag-processor, triggerer).
+# MLflow tracking server + Airflow 3 (standalone: api-server, scheduler, dag-processor, triggerer)
+# with a Postgres metadata database (SQLite races on task scheduling in Airflow 3.0.x).
 # Credentials come from .env (created by `python scripts/setup_env.py`, never committed).
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_DB: airflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run python scripts/setup_env.py}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 5s
+      retries: 10
+
   mlflow:
     build:
       context: .
@@ -22,10 +36,14 @@ services:
     depends_on:
       mlflow:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${POSTGRES_PASSWORD}@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/repo/dags
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:admin"
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/auth/passwords.json
@@ -37,7 +55,8 @@ services:
     volumes:
       - ./:/opt/airflow/repo
       - ./airflow-work:/opt/airflow/work
-      - ./airflow-passwords.json:/opt/airflow/auth/passwords.json:ro
+      - ./airflow-passwords.json:/opt/airflow/auth/passwords.json
 
 volumes:
   mlflow-data:
+  postgres-data:

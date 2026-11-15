@@ -20,6 +20,8 @@ def main() -> None:
     for line in lines:
         if line.startswith("AIRFLOW_PASSWORD="):
             line = f"AIRFLOW_PASSWORD={password}"
+        elif line.startswith("POSTGRES_PASSWORD="):
+            line = f"POSTGRES_PASSWORD={secrets.token_urlsafe(12)}"
         elif line.startswith("AIRFLOW_JWT_SECRET="):
             line = f"AIRFLOW_JWT_SECRET={jwt}"
         out.append(line)

@@ -42,11 +42,8 @@ class QualityGateError(Exception):
 # --------------------------------------------------------------------------- DVC helpers
 
 def dvc_md5(path: Path) -> str:
-    """md5 the way DVC computes it for text files (line endings normalised to LF)."""
-    data = path.read_bytes()
-    if b"\0" not in data[:8192]:
-        data = data.replace(b"\r\n", b"\n")
-    return hashlib.md5(data).hexdigest()  # noqa: S324 - matches DVC's content hash, not security
+    """md5 exactly as DVC 3 records it (`hash: md5` = raw file bytes, no line-ending changes)."""
+    return hashlib.md5(path.read_bytes()).hexdigest()  # noqa: S324 - matches DVC's content hash
 
 
 def recorded_md5(dataset: str = DEFAULT_DATASET, root: Path = REPO_ROOT) -> str | None:

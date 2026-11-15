@@ -32,12 +32,13 @@ class Agent:
         llm: LLM | None = None,
         settings: Settings | None = None,
         registry: dict[str, Tool] | None = None,
-        llm_summary: bool = True,
+        llm_summary: bool | None = None,
     ):
         self.llm = llm
         self.settings = settings or get_settings()
         self.registry = registry if registry is not None else get_registry()
-        self.llm_summary = llm_summary
+        # Off by default: a 1B model's prose summary was observed to misstate correct evidence.
+        self.llm_summary = self.settings.llm_summary if llm_summary is None else llm_summary
         self._pending: dict[str, PendingAction] = {}
 
     # ------------------------------------------------------------------ tool dispatch
@@ -127,7 +128,9 @@ class Agent:
         return evidence
 
     def _summarise(self, message: str, evidence: list[ToolResult], request_id: str) -> str | None:
-        if not (self.llm and self.llm_summary) or not any(r.ok for r in evidence):
+        # A small model summarising partial evidence tends to paper over the gaps: only summarise
+        # when every tool call succeeded. Otherwise the structured report alone speaks.
+        if not (self.llm and self.llm_summary) or not evidence or not all(r.ok for r in evidence):
             return None
         blob = json.dumps([r.model_dump(include={"tool", "status", "data", "error"}) for r in evidence],
                           default=str)[:6000]
@@ -156,9 +159,15 @@ class Agent:
             if self.llm is not None:
                 evidence = self._run_with_llm(message, request_id)
                 mode = "llm-tools"
-            if not evidence and plan.steps:
+            # LLM chose nothing, or every call it made was rejected as invalid: the planner takes over.
+            llm_useless = not evidence or all(r.status == "invalid" for r in evidence)
+            if llm_useless and plan.steps:
                 mode = "rules-fallback" if self.llm is not None else "rules"
+                rejected = evidence or []
                 evidence = self._run_plan(plan.steps, request_id)
+                if rejected:
+                    log_event(self.settings.log_file, "llm_calls_rejected", request_id=request_id,
+                              tools=[r.tool for r in rejected], errors=[r.error for r in rejected])
         evidence = evidence or []
 
         report = build_report(message, evidence, integration=plan.intent == "integration")

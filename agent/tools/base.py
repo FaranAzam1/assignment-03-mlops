@@ -112,6 +112,11 @@ def get_registry() -> dict[str, Tool]:
     return _REGISTRY
 
 
+def _is_connection_error(exc: BaseException) -> bool:
+    low = f"{type(exc).__name__}: {exc}".lower()
+    return any(s in low for s in ("connection", "max retries", "refused", "timed out", "unreachable"))
+
+
 _POOL = ThreadPoolExecutor(max_workers=8, thread_name_prefix="tool")
 
 
@@ -146,9 +151,20 @@ def execute_tool(
         else:
             if t.mutating:
                 args["_confirmed"] = bool(confirmed)
+            # Read-only tools get one retry on a connection-level failure (busy server, dropped socket).
+            attempts = 1 if t.mutating else 2
             future = _POOL.submit(t.func, **args)
             try:
-                data = future.result(timeout=settings.tool_timeout_s)
+                for attempt in range(attempts):
+                    try:
+                        data = future.result(timeout=settings.tool_timeout_s)
+                        break
+                    except (FutureTimeout, ToolError, PermissionDenied):
+                        raise
+                    except Exception as exc:  # noqa: BLE001
+                        if attempt + 1 >= attempts or not _is_connection_error(exc):
+                            raise
+                        future = _POOL.submit(t.func, **args)
             except FutureTimeout:
                 future.cancel()
                 status = "timeout"
@@ -162,12 +178,7 @@ def execute_tool(
             except Exception as exc:  # noqa: BLE001 - tools wrap arbitrary client libraries
                 # Connection problems from requests/urllib3/kubernetes/mlflow land here.
                 text = f"{type(exc).__name__}: {exc}"
-                low = text.lower()
-                is_conn = any(
-                    s in low
-                    for s in ("connection", "max retries", "refused", "timed out", "unreachable")
-                )
-                status = "unavailable" if is_conn else "error"
+                status = "unavailable" if _is_connection_error(exc) else "error"
                 error = text[:400]
             args.pop("_confirmed", None)
 

@@ -206,3 +206,17 @@ def test_integration_flags_data_changed_since_training(tmp_path):
     _setup_world(tmp_path, md5="f" * 32)
     resp = Agent(llm=None).handle(INTEGRATION)
     assert "different dataset version" in resp.answer
+
+
+def test_llm_with_only_invalid_calls_falls_back_to_planner(fake_mlflow):
+    llm = StubLLM(call("mlflow_compare_runs", metric="f1"), LLMResponse(content=""))
+    resp = Agent(llm=llm, llm_summary=False).handle("what is the best mlflow run by f1?")
+    assert resp.mode == "rules-fallback"
+    assert any(t.tool == "mlflow_find_best_run" and t.ok for t in resp.tool_calls)
+
+
+def test_llm_summary_skipped_when_any_tool_failed(fake_mlflow):
+    mlflow_tools.set_client_factory(lambda: FakeMlflow(fail=ConnectionError("refused")))
+    llm = StubLLM(LLMResponse(content="should never be used"))
+    resp = Agent(llm=llm).handle("list mlflow experiments")
+    assert "Summary (LLM" not in resp.answer

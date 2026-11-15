@@ -21,6 +21,11 @@ def _root() -> Path:
     return get_settings().repo_root
 
 
+def _budget() -> float:
+    """Subprocess time budget: must finish inside the tool deadline."""
+    return get_settings().tool_timeout_s * 0.6
+
+
 def _git(*args: str) -> str:
     return run_command(["git", *args], _root())
 
@@ -174,7 +179,11 @@ def dvc_compare_dataset_versions(
     }
     try:
         result["dvc_diff"] = json.loads(
-            run_command(["dvc", "diff", "--json", rev_a, rev_b, "--targets", path], _root())
+            run_command(
+                ["dvc", "diff", "--json", rev_a, rev_b, "--targets", path],
+                _root(),
+                timeout=_budget(),
+            )
         )
     except ToolError as exc:  # dvc missing or no cache: md5 comparison above still holds
         result["dvc_diff_note"] = f"dvc diff unavailable: {exc}"
@@ -192,7 +201,7 @@ def dvc_check_data_changed(path: str | None = None) -> dict[str, Any]:
     f = _dvc_file(path)
     if not f.exists():
         raise ToolError(f"{f.name} not found: dataset is not tracked by DVC")
-    raw = run_command(["dvc", "status", "--json", f.relative_to(_root()).as_posix()], _root())
+    raw = run_command(["dvc", "status", "--json", f.relative_to(_root()).as_posix()], _root(), timeout=_budget())
     status = json.loads(raw or "{}")
     changed = bool(status)
     return {
@@ -215,7 +224,7 @@ def dvc_explain_reproduce(rev: str, path: str | None = None) -> dict[str, Any]:
     path = path or get_settings().dataset_path
     info = _md5_at(rev, path)
     try:
-        remotes = run_command(["dvc", "remote", "list"], _root()).strip()
+        remotes = run_command(["dvc", "remote", "list"], _root(), timeout=_budget()).strip()
     except ToolError:
         remotes = ""
     rel = path + ".dvc"

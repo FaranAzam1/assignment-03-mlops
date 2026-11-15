@@ -92,3 +92,28 @@ def test_subprocess_allowlist(tmp_path):
         except PermissionDenied:
             continue
         raise AssertionError(f"{bad} should have been denied")
+
+
+def test_read_only_tool_retries_once_on_transient_connection_error():
+    calls = []
+
+    def flaky():
+        calls.append(1)
+        if len(calls) == 1:
+            raise ConnectionError("Connection aborted")
+        return "recovered"
+
+    res = execute_tool("flaky", {}, registry=_reg(flaky=(flaky, params())))
+    assert res.ok and res.data == "recovered" and len(calls) == 2
+
+
+def test_mutating_tool_is_never_retried():
+    calls = []
+
+    def boom(_confirmed=False):
+        calls.append(1)
+        raise ConnectionError("Connection aborted")
+
+    reg = {"boom": Tool("boom", "kubernetes", "x", params(), boom, mutating=True)}
+    res = execute_tool("boom", {}, registry=reg, confirmed=True)
+    assert res.status == "unavailable" and len(calls) == 1

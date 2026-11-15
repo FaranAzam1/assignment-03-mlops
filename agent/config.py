@@ -34,6 +34,7 @@ class Settings:
     dataset_path: str = "data/dataset.csv"
     default_experiment: str = "training_pipeline"
     primary_metric: str = "f1"
+    llm_summary: bool = False
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -58,6 +59,7 @@ class Settings:
             dataset_path=e.get("DATASET_PATH", cls.dataset_path),
             default_experiment=e.get("MLFLOW_EXPERIMENT", cls.default_experiment),
             primary_metric=e.get("PRIMARY_METRIC", cls.primary_metric),
+            llm_summary=e.get("LLM_SUMMARY", "false").lower() in ("1", "true", "yes"),
         )
 
 

@@ -1,5 +1,7 @@
 """Training pipeline stages, including a real end-to-end run against a throw-away MLflow store."""
 
+import hashlib
+
 import pandas as pd
 import pytest
 from mlflow.tracking import MlflowClient
@@ -43,11 +45,11 @@ def test_validation_detects_data_changed_without_dvc_add(tmp_path):
         T.validate_dataset("data/dataset.csv", tmp_path)
 
 
-def test_md5_ignores_line_endings_like_dvc(tmp_path):
-    a, b = tmp_path / "a.csv", tmp_path / "b.csv"
-    a.write_bytes(b"x,y\n1,2\n")
-    b.write_bytes(b"x,y\r\n1,2\r\n")
-    assert T.dvc_md5(a) == T.dvc_md5(b)
+def test_md5_matches_dvc_hash_of_raw_bytes(tmp_path):
+    f = tmp_path / "a.csv"
+    raw = b"x,y\r\n1,2\r\n"  # CRLF as written by pandas on Windows
+    f.write_bytes(raw)
+    assert T.dvc_md5(f) == hashlib.md5(raw).hexdigest()
 
 
 @pytest.fixture
